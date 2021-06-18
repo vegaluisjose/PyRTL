@@ -210,12 +210,7 @@ class WireVector(object):
         a, b = match_bitwidth(a, b)
         resultlen = len(a)  # both are the same length now
 
-        # some operations actually create more or less bits
-        if op in '+-':
-            resultlen += 1  # extra bit required for carry
-        elif op == '*':
-            resultlen = resultlen * 2  # more bits needed for mult
-        elif op in '<>=':
+        if op in '<>=':
             resultlen = 1
 
         s = WireVector(bitwidth=resultlen)
