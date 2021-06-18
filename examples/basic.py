@@ -2,9 +2,9 @@ import io
 import pyrtl
 from pyrtl.reticle import add
 
-a = pyrtl.Input(8, 'a')
-b = pyrtl.Input(8, 'b')
-y = pyrtl.Output(8, 'y')
+a = pyrtl.Input(8, "a")
+b = pyrtl.Input(8, "b")
+y = pyrtl.Output(8, "y")
 m = add(a, b)
 y <<= m
 
@@ -24,6 +24,6 @@ print("--- Simulation Results ---")
 sim_trace = pyrtl.SimulationTrace([a, b, y])
 sim = pyrtl.Simulation(tracer=sim_trace)
 for cycle in range(15):
-    sim.step({'a':cycle, 'b':cycle})
+    sim.step({"a": cycle, "b": cycle})
 
 sim_trace.print_vcd()
