@@ -160,6 +160,25 @@ def concat_list(wire_list):
     return concat(*reversed(wire_list))
 
 
+def add(a, b):
+    """ Return a WireVector for result of signed addition.
+
+    :param a: a WireVector to serve as first input to addition
+    :param b: a WireVector to serve as second input to addition
+
+    Given a length n and length m WireVector the result of the
+    signed addition is length max(n,m)+1.  The inputs are twos
+    complement sign extended to the same length before adding.
+    If an integer is passed to either a or b, it will be converted
+    automatically to a two's complemented constant"""
+    if isinstance(a, int):
+        a = Const(a, signed=True)
+    if isinstance(b, int):
+        b = Const(b, signed=True)
+    a, b = match_bitwidth(as_wires(a), as_wires(b), signed=False)
+    return (a + b)
+
+
 def signed_add(a, b):
     """ Return a WireVector for result of signed addition.
 
