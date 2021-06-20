@@ -1507,9 +1507,7 @@ def output_to_reticle(open_file, block=None):
                 return "{}:i{}".format(var.name, var.bitwidth)
         else:
             raise PyrtlInternalError(
-                "reticle emit_var(), {} must be a wirevector or logicnet".format(
-                    var
-                )
+                "reticle emit_var(), {} must be a wirevector or logicnet".format(var)
             )
 
     def emit_var_tuple(vars):
@@ -1547,14 +1545,21 @@ def output_to_reticle(open_file, block=None):
     for log_net in _net_sorted(block.logic_subset()):
         if log_net.op == "+":
             f.write(
-                "  {} = add({}, {});".format(
+                "  {} = add({}, {});\n".format(
                     emit_var(log_net.dests[0]),
                     log_net.args[0].name,
                     log_net.args[1].name,
                 )
             )
+        elif log_net.op == "w":
+            f.write(
+                "  {} = id({});\n".format(
+                    emit_var(log_net.dests[0]),
+                    log_net.args[0].name,
+                )
+            )
         else:
             pass
 
-    f.write("\n}")
+    f.write("}")
     return 0
