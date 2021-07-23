@@ -1506,7 +1506,7 @@ class Namer:
         if name in self.map:
             return self.map[name]
         else:
-            new = self.name()
+            new = self.new()
             self.map[name] = new
             return new
 
@@ -1569,6 +1569,8 @@ def output_to_reticle(open_file, block=None):
     f.write("def main {} -> {} {{\n".format(inputs, outputs))
 
     namer = Namer()
+
+    # constants
     const_f = namer.new()
     const_t = namer.new()
     indent = "    "
@@ -1582,6 +1584,20 @@ def output_to_reticle(open_file, block=None):
         else:
             new = namer.new()
             f.write("{}{}:i{} = const[{}];\n".format(indent, new, const.bitwidth, const.val))
+
+    for log_net in _net_sorted(block.logic_subset()):
+        if log_net.op == "s" and isinstance(log_net.args[0], Const) and log_net.args[0].bitwidth == 1 and len(log_net.op_param) == 1:
+            arg_name = namer.rename(log_net.args[0].name)
+            namer.bind(log_net.dests[0].name, arg_name)
+        if log_net.op == "s" and isinstance(log_net.args[0], Const) and log_net.args[0].bitwidth == 1 and len(log_net.op_param):
+            arg_name = namer.rename(log_net.args[0].name)
+            dst_name = namer.rename(log_net.dests[0].name)
+            if arg_name == const_f:
+                f.write("{}{} = const[0];\n".format(indent, emit_expr(dst_name, len(log_net.op_param))))
+            else:
+                arg = [arg_name for _ in log_net.op_param]
+                dst = emit_expr(dst_name, log_net.dests[0].bitwidth)
+                f.write("{}{} = cat({});\n".format(indent, dst, ", ".join(arg)))
 
     # emit stmt
     # for log_net in _net_sorted(block.logic_subset()):
