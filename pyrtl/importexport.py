@@ -1490,6 +1490,29 @@ def input_from_iscas_bench(bench, block=None):
                 "Output '%s' has now been renamed to '%s'." % (i.name, o.name)
             )
 
+class Namer:
+
+    def __init__(self, prefix="t"):
+        self.cnt = 0
+        self.map = {}
+        self.prefix = prefix
+
+    def new(self):
+        tmp = self.cnt
+        self.cnt += 1
+        return "{}{}".format(self.prefix, tmp)
+
+    def rename(self, name):
+        if name in self.map:
+            return self.map[name]
+        else:
+            new = self.name()
+            self.map[name] = new
+            return new
+
+    def bind(self, old, new):
+        self.map[old] = new
+
 
 def output_to_reticle(open_file, block=None):
     """Output the block as Reticle code to the output file.
@@ -1499,12 +1522,16 @@ def output_to_reticle(open_file, block=None):
 
     """
 
+    # @vegaluisjose: fix these internal funcs
+    def emit_expr(name, bitwidth):
+        if bitwidth == 1:
+            return "{}:bool".format(name)
+        else:
+            return "{}:i{}".format(name, bitwidth)
+
     def emit_var(var):
         if isinstance(var, WireVector) | isinstance(var, LogicNet):
-            if var.bitwidth == 1:
-                return "{}:bool".format(var.name)
-            else:
-                return "{}:i{}".format(var.name, var.bitwidth)
+            return emit_expr(var.name, var.bitwidth)
         else:
             raise PyrtlInternalError(
                 "reticle emit_var(), {} must be a wirevector or logicnet".format(var)
@@ -1541,25 +1568,45 @@ def output_to_reticle(open_file, block=None):
     outputs = emit_io(block.wirevector_subset(Output))
     f.write("def main {} -> {} {{\n".format(inputs, outputs))
 
-    # emit stmt
-    for log_net in _net_sorted(block.logic_subset()):
-        if log_net.op == "+":
-            f.write(
-                "  {} = add({}, {});\n".format(
-                    emit_var(log_net.dests[0]),
-                    log_net.args[0].name,
-                    log_net.args[1].name,
-                )
-            )
-        elif log_net.op == "w":
-            f.write(
-                "  {} = id({});\n".format(
-                    emit_var(log_net.dests[0]),
-                    log_net.args[0].name,
-                )
-            )
+    namer = Namer()
+    const_f = namer.new()
+    const_t = namer.new()
+    indent = "    "
+    f.write("{}{}:bool = const[0];\n".format(indent, const_f))
+    f.write("{}{}:bool = const[1];\n".format(indent, const_t))
+    for const in _name_sorted(block.wirevector_subset(Const)):
+        if const.bitwidth == 1 and const.val == 0:
+            namer.bind(const.name, const_f)
+        elif const.bitwidth == 1 and const.val == 1:
+            namer.bind(const.name, const_t)
         else:
-            pass
+            new = namer.new()
+            f.write("{}{}:i{} = const[{}];\n".format(indent, new, const.bitwidth, const.val))
+
+    # emit stmt
+    # for log_net in _net_sorted(block.logic_subset()):
+        # if log_net.op == "r":
+        #     # if isinstance(log_net.args[0], Const):
+        #     f.write("logic_net:{}\n".format(log_net))
+        #     f.write("name:{} width:{}\n\n".format(log_net.args[0].name, log_net.args[0].bitwidth))
+        # f.write("dest:{} args:{} op:{} param:{}\n".format(log_net.dests[0], log_net.args[0], log_net.op, log_net.op_param))
+        # if log_net.op == "+":
+        #     f.write(
+        #         "  {} = add({}, {});\n".format(
+        #             emit_var(log_net.dests[0]),
+        #             log_net.args[0].name,
+        #             log_net.args[1].name,
+        #         )
+        #     )
+        # elif log_net.op == "w":
+        #     f.write(
+        #         "  {} = id({});\n".format(
+        #             emit_var(log_net.dests[0]),
+        #             log_net.args[0].name,
+        #         )
+        #     )
+        # else:
+        #     pass
 
     f.write("}")
     return 0
