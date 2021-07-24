@@ -291,7 +291,7 @@ class AES(object):
     def _build_memories(self):
         def build_mem(data):
             return pyrtl.RomBlock(bitwidth=8, addrwidth=8, romdata=data, build_new_roms=True,
-                                  asynchronous=True)
+                                  asynchronous=True, max_read_ports=1)
 
         self.sbox = build_mem(self._sbox_data)
         self.inv_sbox = build_mem(self._inv_sbox_data)
