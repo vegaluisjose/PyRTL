@@ -1627,7 +1627,9 @@ def output_to_reticle(open_file, block=None):
             f.write("{}{} = not({});\n".format(indent, dst, arg_name[0]))
         elif log_net.op == "x":
             f.write("{}{} = mux({}, {}, {});\n".format(indent, dst, arg_name[0], arg_name[2], arg_name[1]))
+        elif log_net.op == "m" and isinstance(log_net.op_param[1], RomBlock):
+            f.write("{}{} = rom({});\n".format(indent, dst, arg_name[0]))
         else:
-            f.write("{}\n".format(log_net))
+            PyrtlInternalError("unsupported operation: {}".format(log_net))
     f.write("}")
     return 0
