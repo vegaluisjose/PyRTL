@@ -1586,31 +1586,48 @@ def output_to_reticle(open_file, block=None):
             f.write("{}{}:i{} = const[{}];\n".format(indent, new, const.bitwidth, const.val))
 
     for log_net in _net_sorted(block.logic_subset()):
-        arg_name = namer.rename(log_net.args[0].name)
-        dst_name = namer.rename(log_net.dests[0].name)
-        dst = emit_expr(dst_name, log_net.dests[0].bitwidth)
+        arg_name = [namer.rename(a.name) for a in log_net.args]
+        dst_name = [namer.rename(a.name) for a in log_net.dests]
+        dst = emit_expr(dst_name[0], log_net.dests[0].bitwidth)
         if log_net.op == "s" and isinstance(log_net.args[0], Const) and log_net.args[0].bitwidth == 1 and len(log_net.op_param) == 1:
-            namer.bind(log_net.dests[0].name, arg_name)
+            namer.bind(log_net.dests[0].name, arg_name[0])
+        elif log_net.op == "s" and isinstance(log_net.args[0], Const) and log_net.args[0].bitwidth == 1 and len(log_net.op_param) and arg_name[0] == const_f:
+            new_dst = emit_expr(dst_name[0], len(log_net.op_param))
+            f.write("{}{} = const[0];\n".format(indent, new_dst))
         elif log_net.op == "s" and isinstance(log_net.args[0], Const) and log_net.args[0].bitwidth == 1 and len(log_net.op_param):
-            if arg_name == const_f:
-                f.write("{}{} = const[0];\n".format(indent, emit_expr(dst_name, len(log_net.op_param))))
-            else:
-                arg = [arg_name for _ in log_net.op_param]
-                f.write("{}{} = cat({});\n".format(indent, dst, ", ".join(arg)))
+            arg = [arg_name[0] for _ in log_net.op_param]
+            f.write("{}{} = cat({});\n".format(indent, dst, ", ".join(arg)))
         elif log_net.op == "s":
             cat = []
             for i in log_net.op_param:
                 new = namer.new()
                 cat.append(new)
                 dst = emit_expr(new, 1)
-                f.write("{}{} = ext[{}]({});\n".format(indent, dst, i, arg_name))
+                f.write("{}{} = ext[{}]({});\n".format(indent, dst, i, arg_name[0]))
             f.write("{}{} = cat({});\n".format(indent, dst, ", ".join(cat)))
         elif log_net.op == "w" and isinstance(log_net.dests[0], Output):
             out = emit_expr(log_net.dests[0].name, log_net.dests[0].bitwidth)
-            f.write("{}{} = id({});\n".format(indent, out, arg_name))
+            f.write("{}{} = id({});\n".format(indent, out, arg_name[0]))
         elif log_net.op == "w":
-            f.write("{}{} = id({});\n".format(indent, dst, arg_name))
+            f.write("{}{} = id({});\n".format(indent, dst, arg_name[0]))
         elif log_net.op == "r":
-            f.write("{}{} = reg[0]({}, {});\n".format(indent, dst, arg_name, const_t))
+            f.write("{}{} = reg[0]({}, {});\n".format(indent, dst, arg_name[0], const_t))
+        elif log_net.op == "c":
+            arg = [namer.rename(a.name) for a in log_net.args]
+            f.write("{}{} = cat({});\n".format(indent, dst, ", ".join(arg)))
+        elif log_net.op == "&":
+            f.write("{}{} = and({}, {});\n".format(indent, dst, arg_name[0], arg_name[1]))
+        elif log_net.op == "^":
+            f.write("{}{} = xor({}, {});\n".format(indent, dst, arg_name[0], arg_name[1]))
+        elif log_net.op == "=":
+            f.write("{}{} = eq({}, {});\n".format(indent, dst, arg_name[0], arg_name[1]))
+        elif log_net.op == "+":
+            f.write("{}{} = add({}, {});\n".format(indent, dst, arg_name[0], arg_name[1]))
+        elif log_net.op == "~":
+            f.write("{}{} = not({});\n".format(indent, dst, arg_name[0]))
+        elif log_net.op == "x":
+            f.write("{}{} = mux({}, {}, {});\n".format(indent, dst, arg_name[0], arg_name[2], arg_name[1]))
+        else:
+            f.write("{}\n".format(log_net))
     f.write("}")
     return 0
