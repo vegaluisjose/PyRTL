@@ -1559,6 +1559,18 @@ def output_to_reticle(open_file, block=None):
                 "reticle emit_io(), {} must be a set".format(ioset)
             )
 
+    def is_seq(params):
+        if isinstance(params, tuple) and len(params) > 1:
+            x = params[0]
+            for p in params:
+                if x != p:
+                    return False
+                x += 1
+            return True
+        else:
+            raise PyrtlInternalError("reticle, is_seq takes only non-empty list")
+
+
     block = working_block(block)
 
     f = open_file
@@ -1594,7 +1606,7 @@ def output_to_reticle(open_file, block=None):
             f.write("{}{}:i{} = const[{}];\n".format(indent, new, const.bitwidth, const.val))
 
     for log_net in _net_sorted(block.logic_subset()):
-        arg_name = [a.name if isinstance(a, Input) else namer.rename(a.name) for a in log_net.args]
+        arg_name = [namer.rename(a.name) for a in log_net.args]
         dst_name = [namer.rename(a.name) for a in log_net.dests]
         dst = emit_expr(dst_name[0], log_net.dests[0].bitwidth)
         if log_net.op == "s" and isinstance(log_net.args[0], Const) and log_net.args[0].bitwidth == 1 and len(log_net.op_param) == 1:
@@ -1605,37 +1617,24 @@ def output_to_reticle(open_file, block=None):
         elif log_net.op == "s" and isinstance(log_net.args[0], Const) and log_net.args[0].bitwidth == 1 and len(log_net.op_param):
             arg = [arg_name[0] for _ in log_net.op_param]
             f.write("{}{} = cat({});\n".format(indent, dst, ", ".join(arg)))
+        elif log_net.op == "s" and is_seq(log_net.op_param):
+            start = log_net.op_param[0]
+            end = log_net.op_param[-1]
+            f.write("{}{} = ext[{},{}]({});\n".format(indent, dst, start, end, arg_name[0]))
         elif log_net.op == "s":
-            cat = []
+            f.write("{}\n".format(log_net))
+            a = []
             for i in log_net.op_param:
-                new = namer.new()
-                cat.append(new)
-                dst = emit_expr(new, 1)
-                f.write("{}{} = ext[{}]({});\n".format(indent, dst, i, arg_name[0]))
-            f.write("{}{} = cat({});\n".format(indent, dst, ", ".join(cat)))
+                new_a = namer.new()
+                a.append(new_a)
+                dst_y = emit_expr(new_a, 1)
+                f.write("{}{} = ext[{}]({});\n".format(indent, dst_y, i, arg_name[0]))
+            f.write("{}{} = cat({});\n".format(indent, dst, ", ".join(a)))
         elif log_net.op == "w" and isinstance(log_net.dests[0], Output):
             out = emit_expr(log_net.dests[0].name, log_net.dests[0].bitwidth)
             f.write("{}{} = id({});\n".format(indent, out, arg_name[0]))
         elif log_net.op == "w":
             f.write("{}{} = id({});\n".format(indent, dst, arg_name[0]))
-        elif log_net.op == "r" and log_net.dests[0].bitwidth % 8 == 0 and log_net.dests[0].bitwidth > 8:
-            num = log_net.dests[0].bitwidth // 8
-            res = []
-            for i in range(num):
-                a = []
-                for j in range(8):
-                    new_a = namer.new()
-                    a.append(new_a)
-                    dst_a = emit_expr(new_a, 1)
-                    f.write("{}{} = ext[{}]({});\n".format(indent, dst_a, i*8 + j, arg_name[0]))
-                new_a = namer.new()
-                dst_a = emit_expr(new_a, 8)
-                f.write("{}{} = cat({});\n".format(indent, dst_a, ", ".join(a)))
-                new_y = namer.new()
-                res.append(new_y)
-                dst_y = emit_expr(new_y, 8)
-                f.write("{}{} = reg[0]({}, {});\n".format(indent, dst_y, new_a, const_t))
-            f.write("{}{} = cat({});\n".format(indent, dst, ", ".join(res)))
         elif log_net.op == "r":
             f.write("{}{} = reg[0]({}, {});\n".format(indent, dst, arg_name[0], const_t))
         elif log_net.op == "c":
@@ -1651,32 +1650,6 @@ def output_to_reticle(open_file, block=None):
             f.write("{}{} = add({}, {});\n".format(indent, dst, arg_name[0], arg_name[1]))
         elif log_net.op == "~":
             f.write("{}{} = not({});\n".format(indent, dst, arg_name[0]))
-        elif log_net.op == "x" and log_net.dests[0].bitwidth % 8 == 0 and log_net.dests[0].bitwidth > 8:
-            num = log_net.dests[0].bitwidth // 8
-            res = []
-            for i in range(num):
-                a = []
-                b = []
-                for j in range(8):
-                    new_a = namer.new()
-                    new_b = namer.new()
-                    a.append(new_a)
-                    b.append(new_b)
-                    dst_a = emit_expr(new_a, 1)
-                    dst_b = emit_expr(new_b, 1)
-                    f.write("{}{} = ext[{}]({});\n".format(indent, dst_a, i*8 + j, arg_name[2]))
-                    f.write("{}{} = ext[{}]({});\n".format(indent, dst_b, i*8 + j, arg_name[1]))
-                new_a = namer.new()
-                new_b = namer.new()
-                dst_a = emit_expr(new_a, 8)
-                dst_b = emit_expr(new_b, 8)
-                f.write("{}{} = cat({});\n".format(indent, dst_a, ", ".join(a)))
-                f.write("{}{} = cat({});\n".format(indent, dst_b, ", ".join(b)))
-                new_y = namer.new()
-                res.append(new_y)
-                dst_y = emit_expr(new_y, 8)
-                f.write("{}{} = mux({}, {}, {});\n".format(indent, dst_y, arg_name[0], new_a, new_b))
-            f.write("{}{} = cat({});\n".format(indent, dst, ", ".join(res)))
         elif log_net.op == "x":
             f.write("{}{} = mux({}, {}, {});\n".format(indent, dst, arg_name[0], arg_name[2], arg_name[1]))
         elif log_net.op == "m" and isinstance(log_net.op_param[1], RomBlock):
