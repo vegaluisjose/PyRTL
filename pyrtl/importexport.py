@@ -1633,6 +1633,32 @@ def output_to_reticle(open_file, block=None):
             f.write("{}{} = add({}, {});\n".format(indent, dst, arg_name[0], arg_name[1]))
         elif log_net.op == "~":
             f.write("{}{} = not({});\n".format(indent, dst, arg_name[0]))
+        elif log_net.op == "x" and log_net.dests[0].bitwidth % 8 == 0 and log_net.dests[0].bitwidth > 8:
+            num = log_net.dests[0].bitwidth // 8
+            res = []
+            for i in range(num):
+                a = []
+                b = []
+                for j in range(8):
+                    new_a = namer.new()
+                    new_b = namer.new()
+                    a.append(new_a)
+                    b.append(new_b)
+                    dst_a = emit_expr(new_a, 1)
+                    dst_b = emit_expr(new_b, 1)
+                    f.write("{}{} = ext[{}]({});\n".format(indent, dst_a, i*8 + j, arg_name[2]))
+                    f.write("{}{} = ext[{}]({});\n".format(indent, dst_b, i*8 + j, arg_name[1]))
+                new_a = namer.new()
+                new_b = namer.new()
+                dst_a = emit_expr(new_a, 8)
+                dst_b = emit_expr(new_b, 8)
+                f.write("{}{} = cat({});\n".format(indent, dst_a, ", ".join(a)))
+                f.write("{}{} = cat({});\n".format(indent, dst_b, ", ".join(b)))
+                new_y = namer.new()
+                res.append(new_y)
+                dst_y = emit_expr(new_y, 8)
+                f.write("{}{} = mux({}, {}, {});\n".format(indent, dst_y, arg_name[0], new_a, new_b))
+            f.write("{}{} = cat({});\n".format(indent, dst, ", ".join(res)))
         elif log_net.op == "x":
             f.write("{}{} = mux({}, {}, {});\n".format(indent, dst, arg_name[0], arg_name[2], arg_name[1]))
         elif log_net.op == "m" and isinstance(log_net.op_param[1], RomBlock):
