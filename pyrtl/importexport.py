@@ -1514,7 +1514,7 @@ class Namer:
         self.map[old] = new
 
 
-def output_to_reticle(open_file, block=None):
+def output_to_reticle(open_file, mem_file, block=None):
     """Output the block as Reticle code to the output file.
 
     :param open_file: File to write to
@@ -1605,6 +1605,7 @@ def output_to_reticle(open_file, block=None):
             new = namer.rename(const.name)
             f.write("{}{}:i{} = const[{}];\n".format(indent, new, const.bitwidth, const.val))
 
+    rommap = {}
     for log_net in _net_sorted(block.logic_subset()):
         arg_name = [namer.rename(a.name) for a in log_net.args]
         dst_name = [namer.rename(a.name) for a in log_net.dests]
@@ -1653,8 +1654,26 @@ def output_to_reticle(open_file, block=None):
         elif log_net.op == "x":
             f.write("{}{} = mux({}, {}, {});\n".format(indent, dst, arg_name[0], arg_name[2], arg_name[1]))
         elif log_net.op == "m" and isinstance(log_net.op_param[1], RomBlock):
+            rommap[log_net.op_param[0]] = dst_name[0]
             f.write("{}{} = rom({});\n".format(indent, dst, arg_name[0]))
         else:
-            PyrtlInternalError("unsupported operation: {}".format(log_net))
+            PyrtlInternalError("reticle, unsupported operation: {}".format(log_net))
     f.write("}")
+
+    import json
+
+    mmap = {}
+
+    roms = {n.op_param[1] for n in block.logic_subset("m") if isinstance(n.op_param[1], RomBlock)}
+    if roms:
+        for m in sorted(roms, key=lambda m: m.id):
+            if m.id in rommap and m.bitwidth == 8:
+                values = []
+                for i in range(1 << m.addrwidth):
+                    values.append(m._get_read_data(i))
+                mmap[rommap[m.id]] = {"offset": 0, "values": values}
+            else:
+                PyrtlInternalError("reticle, unsupported rom shape")
+        mem_file.write(json.dumps(mmap, indent=4))
+
     return 0
