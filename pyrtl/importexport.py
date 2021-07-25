@@ -1618,6 +1618,24 @@ def output_to_reticle(open_file, block=None):
             f.write("{}{} = id({});\n".format(indent, out, arg_name[0]))
         elif log_net.op == "w":
             f.write("{}{} = id({});\n".format(indent, dst, arg_name[0]))
+        elif log_net.op == "r" and log_net.dests[0].bitwidth % 8 == 0 and log_net.dests[0].bitwidth > 8:
+            num = log_net.dests[0].bitwidth // 8
+            res = []
+            for i in range(num):
+                a = []
+                for j in range(8):
+                    new_a = namer.new()
+                    a.append(new_a)
+                    dst_a = emit_expr(new_a, 1)
+                    f.write("{}{} = ext[{}]({});\n".format(indent, dst_a, i*8 + j, arg_name[0]))
+                new_a = namer.new()
+                dst_a = emit_expr(new_a, 8)
+                f.write("{}{} = cat({});\n".format(indent, dst_a, ", ".join(a)))
+                new_y = namer.new()
+                res.append(new_y)
+                dst_y = emit_expr(new_y, 8)
+                f.write("{}{} = reg[0]({}, {});\n".format(indent, dst_y, new_a, const_t))
+            f.write("{}{} = cat({});\n".format(indent, dst, ", ".join(res)))
         elif log_net.op == "r":
             f.write("{}{} = reg[0]({}, {});\n".format(indent, dst, arg_name[0], const_t))
         elif log_net.op == "c":
