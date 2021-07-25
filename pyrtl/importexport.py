@@ -1570,6 +1570,14 @@ def output_to_reticle(open_file, block=None):
 
     namer = Namer()
 
+    # inputs
+    for input in _name_sorted(block.wirevector_subset(Input)):
+        namer.bind(input.name, input.name)
+
+    # outputs
+    for output in _name_sorted(block.wirevector_subset(Output)):
+        namer.bind(output.name, output.name)
+
     # constants
     const_f = namer.new()
     const_t = namer.new()
@@ -1582,15 +1590,15 @@ def output_to_reticle(open_file, block=None):
         elif const.bitwidth == 1 and const.val == 1:
             namer.bind(const.name, const_t)
         else:
-            new = namer.new()
+            new = namer.rename(const.name)
             f.write("{}{}:i{} = const[{}];\n".format(indent, new, const.bitwidth, const.val))
 
     for log_net in _net_sorted(block.logic_subset()):
-        arg_name = [namer.rename(a.name) for a in log_net.args]
+        arg_name = [a.name if isinstance(a, Input) else namer.rename(a.name) for a in log_net.args]
         dst_name = [namer.rename(a.name) for a in log_net.dests]
         dst = emit_expr(dst_name[0], log_net.dests[0].bitwidth)
         if log_net.op == "s" and isinstance(log_net.args[0], Const) and log_net.args[0].bitwidth == 1 and len(log_net.op_param) == 1:
-            namer.bind(log_net.dests[0].name, arg_name[0])
+            namer.bind(dst_name[0], arg_name[0])
         elif log_net.op == "s" and isinstance(log_net.args[0], Const) and log_net.args[0].bitwidth == 1 and len(log_net.op_param) and arg_name[0] == const_f:
             new_dst = emit_expr(dst_name[0], len(log_net.op_param))
             f.write("{}{} = const[0];\n".format(indent, new_dst))

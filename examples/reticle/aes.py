@@ -15,12 +15,11 @@ aes_ciphertext <<= aes_cipher
 
 pyrtl.optimize()
 
-#print("--- Verilog ---")
-#with io.StringIO() as vfile:
-#    pyrtl.output_to_verilog(vfile)
-#    print(vfile.getvalue())
-
-print("--- Reticle ---")
 with io.StringIO() as vfile:
     output_to_reticle(vfile)
+    print(vfile.getvalue())
+
+print("\n\n\n\n")
+with io.StringIO() as vfile:
+    pyrtl.output_to_verilog(vfile)
     print(vfile.getvalue())
