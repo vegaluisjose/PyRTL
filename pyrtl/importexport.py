@@ -1639,7 +1639,7 @@ def output_to_reticle(open_file, mem_file, block=None):
         elif log_net.op == "r":
             f.write("{}{} = reg[0]({}, {});\n".format(indent, dst, arg_name[0], const_t))
         elif log_net.op == "c":
-            arg = [namer.rename(a.name) for a in log_net.args]
+            arg = [namer.rename(a.name) for a in reversed(log_net.args)]
             f.write("{}{} = cat({});\n".format(indent, dst, ", ".join(arg)))
         elif log_net.op == "&":
             f.write("{}{} = and({}, {});\n".format(indent, dst, arg_name[0], arg_name[1]))
