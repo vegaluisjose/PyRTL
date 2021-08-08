@@ -7,10 +7,7 @@ aes = AES()
 plaintext = pyrtl.Input(bitwidth=128, name='aes_plaintext')
 key = pyrtl.Input(bitwidth=128, name='aes_key')
 aes_ciphertext = pyrtl.Output(bitwidth=128, name='aes_ciphertext')
-aes_reset = pyrtl.Input(1, name='aes_reset')
-ready = pyrtl.Output(1, name='ready')
-ready_out, aes_cipher = aes.encrypt_state_m(plaintext, key, aes_reset)
-ready <<= ready_out
+aes_cipher = aes.encryption(plaintext, key)
 aes_ciphertext <<= aes_cipher
 
 pyrtl.optimize()
