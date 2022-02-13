@@ -735,8 +735,15 @@ def _to_verilog_header(file, block, varname, add_reset):
     for m in sorted(memories, key=lambda m: m.id):
         memwidth_str = _verilog_vector_size_decl(m.bitwidth)
         memsize_str = _verilog_vector_size_decl(1 << m.addrwidth)
-        print('    reg{:s} mem_{}{:s}; //{}'.format(memwidth_str, m.id,
-                                                    memsize_str, m.name), file=file)
+        if isinstance(m, RomFix) and m.distributed:
+            print('    (* ram_style = \"distributed\" *) reg{:s} mem_{}{:s}; //{}'.format(memwidth_str, m.id,
+                                                        memsize_str, m.name), file=file)
+        elif isinstance(m, RomFix):
+            print('    (* ram_style = \"block\" *) reg{:s} mem_{}{:s}; //{}'.format(memwidth_str, m.id,
+                                                        memsize_str, m.name), file=file)
+        else:
+            print('    reg{:s} mem_{}{:s}; //{}'.format(memwidth_str, m.id,
+                                                        memsize_str, m.name), file=file)
     for w in name_sorted(registers):
         print('    reg{:s} {:s};'.format(_verilog_vector_decl(w), varname(w)), file=file)
     if (memories or registers):

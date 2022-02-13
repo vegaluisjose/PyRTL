@@ -370,7 +370,7 @@ class RomFix(MemBlock):
     The ROM must be initialized with some values and construction through the use of the
     `romdata` which is the memory for the system.
     """
-    def __init__(self, bitwidth, addrwidth, romdata, name='', max_read_ports=2,
+    def __init__(self, bitwidth, addrwidth, romdata, distributed=False, name='', max_read_ports=2,
                  build_new_roms=False, asynchronous=False, pad_with_zeros=False, block=None):
         """Create a Python Read Only Memory.
 
@@ -398,6 +398,7 @@ class RomFix(MemBlock):
         super(RomFix, self).__init__(bitwidth=bitwidth, addrwidth=addrwidth, name=name,
                                        max_read_ports=max_read_ports, max_write_ports=0,
                                        asynchronous=asynchronous, block=block)
+        self.distributed = distributed
         self.data = romdata
         self.build_new_roms = build_new_roms
         self.current_copy = self
