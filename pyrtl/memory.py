@@ -360,3 +360,111 @@ class RomBlock(MemBlock):
                         romdata=self.data, name=self.name, max_read_ports=self.max_read_ports,
                         asynchronous=self.asynchronous, pad_with_zeros=self.pad_with_zeros,
                         block=block)
+
+
+class RomFix(MemBlock):
+    """ PyRTL Read Only Memory.
+
+    RomFixs are the read only memory block for PyRTL.  They support the same read interface
+    and normal memories, but they are cannot be written to (i.e. there are no write ports).
+    The ROM must be initialized with some values and construction through the use of the
+    `romdata` which is the memory for the system.
+    """
+    def __init__(self, bitwidth, addrwidth, romdata, name='', max_read_ports=2,
+                 build_new_roms=False, asynchronous=False, pad_with_zeros=False, block=None):
+        """Create a Python Read Only Memory.
+
+        :param int bitwidth: The bitwidth of each item stored in the ROM
+        :param int addrwidth: The bitwidth of the address bus (determines number of addresses)
+        :param romdata: This can either be a function or an array (iterable) that maps
+            an address as an input to a result as an output
+        :param str name: The identifier for the memory
+        :param max_read_ports: limits the number of read ports each block can create;
+            passing `None` indicates there is no limit
+        :param bool build_new_roms: indicates whether to create and pass new RomFixs during
+            `__getitem__` to avoid exceeding `max_read_ports`
+        :param bool asynchronous: If false make sure that memory reads are only done
+            using values straight from a register. (aka make sure that reads
+            are synchronous)
+        :param bool pad_with_zeros: If true, extend any missing romdata with zeros out until the
+            size of the romblock so that any access to the rom is well defined.  Otherwise, the
+            simulation should throw an error on access of unintialized data.  If you are generating
+            verilog from the rom, you will need to specify a value for every address (in which case
+            setting this to True will help), however for testing and simulation it useful to know if
+            you are off the end of explicitly specified values (which is why it is False by default)
+        :param block: The block to add to, defaults to the working block
+        """
+
+        super(RomFix, self).__init__(bitwidth=bitwidth, addrwidth=addrwidth, name=name,
+                                       max_read_ports=max_read_ports, max_write_ports=0,
+                                       asynchronous=asynchronous, block=block)
+        self.data = romdata
+        self.build_new_roms = build_new_roms
+        self.current_copy = self
+        self.pad_with_zeros = pad_with_zeros
+
+    def __getitem__(self, item):
+        import numbers
+        if isinstance(item, numbers.Number):
+            raise PyrtlError("There is no point in indexing into a RomFix with an int. "
+                             "Instead, get the value from the source data for this Rom")
+            # If you really know what you are doing, use a Const WireVector instead.
+        return super(RomFix, self).__getitem__(item)
+
+    def __setitem__(self, item, assignment):
+        raise PyrtlError('no writing to a read-only memory')
+
+    def _get_read_data(self, address):
+        import types
+        try:
+            if address < 0 or address > 2**self.addrwidth - 1:
+                raise PyrtlError("Invalid address, " + str(address) + " specified")
+        except TypeError:
+            raise PyrtlError("Address: {} with invalid type specified".format(address))
+        if isinstance(self.data, types.FunctionType):
+            try:
+                value = self.data(address)
+            except Exception:
+                raise PyrtlError("Invalid data function for RomFix")
+        else:
+            try:
+                value = self.data[address]
+            except KeyError:
+                if self.pad_with_zeros:
+                    value = 0
+                else:
+                    raise PyrtlError(
+                        "RomFix key is invalid, "
+                        "consider using pad_with_zeros=True for defaults"
+                    )
+            except IndexError:
+                if self.pad_with_zeros:
+                    value = 0
+                else:
+                    raise PyrtlError(
+                        "RomFix index is invalid, "
+                        "consider using pad_with_zeros=True for defaults"
+                    )
+            except Exception:
+                raise PyrtlError("invalid type for RomFix data object")
+
+        try:
+            if value < 0 or value >= 2**self.bitwidth:
+                raise PyrtlError("invalid value for RomFix data")
+        except TypeError:
+            raise PyrtlError("Value: {} from rom {} has an invalid type"
+                             .format(value, self))
+        return value
+
+    def _build_read_port(self, addr):
+        if self.build_new_roms and \
+                (self.current_copy.num_read_ports >= self.current_copy.max_read_ports):
+            self.current_copy = self._make_copy()
+        return super(RomFix, self.current_copy)._build_read_port(addr)
+
+    def _make_copy(self, block=None,):
+        block = working_block(block)
+        return RomFix(bitwidth=self.bitwidth, addrwidth=self.addrwidth,
+                        romdata=self.data, name=self.name, max_read_ports=self.max_read_ports,
+                        asynchronous=self.asynchronous, pad_with_zeros=self.pad_with_zeros,
+                        block=block)

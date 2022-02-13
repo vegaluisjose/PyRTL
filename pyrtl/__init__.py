@@ -69,6 +69,7 @@ from .corecircuits import shift_right_logical
 # memory blocks
 from .memory import MemBlock
 from .memory import RomBlock
+from .memory import RomFix
 
 # conditional updates
 from .conditional import conditional_assignment

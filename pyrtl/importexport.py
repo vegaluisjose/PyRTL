@@ -21,7 +21,7 @@ from .pyrtlexceptions import PyrtlError, PyrtlInternalError
 from .core import working_block, _NameSanitizer
 from .wire import WireVector, Input, Output, Const, Register, next_tempvar_name
 from .corecircuits import concat_list, rtl_all, rtl_any, select
-from .memory import RomBlock
+from .memory import RomBlock, RomFix
 from .passes import two_way_concat, one_bit_selects
 
 
@@ -751,6 +751,16 @@ def _to_verilog_header(file, block, varname, add_reset):
     # If we ever add support outside of simulation for initial values
     #  for MemBlocks, that would also go here.
     roms = {m for m in memories if isinstance(m, RomBlock)}
+    for m in sorted(roms, key=lambda m: m.id):
+        print('    initial begin', file=file)
+        for i in range(1 << m.addrwidth):
+            mem_elem_str = 'mem_{}[{:d}]'.format(m.id, i)
+            mem_data_str = "{:d}'h{:x}".format(m.bitwidth, m._get_read_data(i))
+            print('        {:s}={:s};'.format(mem_elem_str, mem_data_str), file=file)
+        print('    end', file=file)
+        print('', file=file)
+
+    roms = {m for m in memories if isinstance(m, RomFix)}
     for m in sorted(roms, key=lambda m: m.id):
         print('    initial begin', file=file)
         for i in range(1 << m.addrwidth):
