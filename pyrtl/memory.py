@@ -17,7 +17,7 @@ import collections
 
 from .pyrtlexceptions import PyrtlError
 from .core import working_block, LogicNet, _NameIndexer
-from .wire import WireVector, Const, next_tempvar_name
+from .wire import WireVector, Const, next_tempvar_name, Register
 from .corecircuits import as_wires
 # ------------------------------------------------------------------------
 #
@@ -202,6 +202,7 @@ class MemBlock(object):
         working_block().add_net(readport_net)
         self.readport_nets.append(readport_net)
         return data
+
 
     def _assignment(self, item, val, is_conditional):
         from .conditional import _build
@@ -461,7 +462,13 @@ class RomFix(MemBlock):
         if self.build_new_roms and \
                 (self.current_copy.num_read_ports >= self.current_copy.max_read_ports):
             self.current_copy = self._make_copy()
-        return super(RomFix, self.current_copy)._build_read_port(addr)
+        data = super(RomFix, self.current_copy)._build_read_port(addr)
+        if self.asynchronous:
+            return data
+        else:
+            r = Register(bitwidth=self.bitwidth)
+            r.next <<= data
+            return r
 
     def _make_copy(self, block=None,):
         block = working_block(block)

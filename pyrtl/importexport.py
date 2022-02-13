@@ -607,7 +607,7 @@ def input_from_verilog(verilog, clock_name='clk', toplevel=None, leave_in_dir=No
             os.remove(tmp_blif_path)
 
 
-def output_to_verilog(dest_file, add_reset=True, block=None):
+def output_to_verilog(dest_file, clock_name="clock", add_reset=True, block=None):
     """ A function to walk the block and output it in Verilog format to the open file.
 
     :param dest_file: Open file where the Verilog output will be written
@@ -639,10 +639,10 @@ def output_to_verilog(dest_file, add_reset=True, block=None):
     def varname(wire):
         return internal_names[wire.name]
 
-    _to_verilog_header(file, block, varname, add_reset)
+    _to_verilog_header(file, block, varname, add_reset, clock_name)
     _to_verilog_combinational(file, block, varname)
-    _to_verilog_sequential(file, block, varname, add_reset)
-    _to_verilog_memories(file, block, varname)
+    _to_verilog_sequential(file, block, varname, add_reset, clock_name)
+    _to_verilog_memories(file, block, varname, clock_name)
     _to_verilog_footer(file)
 
 
@@ -697,7 +697,7 @@ def _verilog_block_parts(block):
     return inputs, outputs, registers, wires, memories
 
 
-def _to_verilog_header(file, block, varname, add_reset):
+def _to_verilog_header(file, block, varname, add_reset, clock_name="clock"):
     """ Print the header of the verilog implementation. """
 
     def name_sorted(wires):
@@ -713,7 +713,7 @@ def _to_verilog_header(file, block, varname, add_reset):
     inputs, outputs, registers, wires, memories = _verilog_block_parts(block)
 
     # module name
-    io_list = ['clk'] + name_list(name_sorted(inputs)) + name_list(name_sorted(outputs))
+    io_list = [clock_name] + name_list(name_sorted(inputs)) + name_list(name_sorted(outputs))
     if add_reset:
         io_list.insert(1, 'rst')
     if any(w.startswith('tmp') for w in io_list):
@@ -722,7 +722,7 @@ def _to_verilog_header(file, block, varname, add_reset):
     print('module toplevel({:s});'.format(io_list_str), file=file)
 
     # inputs and outputs
-    print('    input clk;', file=file)
+    print('    input {};'.format(clock_name), file=file)
     if add_reset:
         print('    input rst;', file=file)
     for w in name_sorted(inputs):
@@ -827,16 +827,16 @@ def _to_verilog_combinational(file, block, varname):
     print('', file=file)
 
 
-def _to_verilog_sequential(file, block, varname, add_reset):
+def _to_verilog_sequential(file, block, varname, add_reset, clock_name="clock"):
     """ Print the sequential logic of the verilog implementation. """
     if not block.logic_subset(op='r'):
         return
 
     print('    // Registers', file=file)
     if add_reset == 'asynchronous':
-        print('    always @(posedge clk or posedge rst)', file=file)
+        print('    always @(posedge {} or posedge rst)'.format(clock_name), file=file)
     else:
-        print('    always @(posedge clk)', file=file)
+        print('    always @(posedge {})'.format(clock_name), file=file)
     print('    begin', file=file)
     if add_reset:
         print('        if (rst) begin', file=file)
@@ -861,7 +861,7 @@ def _to_verilog_sequential(file, block, varname, add_reset):
     print('', file=file)
 
 
-def _to_verilog_memories(file, block, varname):
+def _to_verilog_memories(file, block, varname, clock_name="clock"):
     """ Print the memories of the verilog implementation. """
     memories = {n.op_param[1] for n in block.logic_subset('m@')}
     for m in sorted(memories, key=lambda m: m.id):
@@ -869,7 +869,7 @@ def _to_verilog_memories(file, block, varname):
         writes = [net for net in _net_sorted(block.logic_subset('@'), varname)
                   if net.op_param[1] == m]
         if writes:
-            print('    always @(posedge clk)', file=file)
+            print('    always @(posedge {})'.format(clock_name), file=file)
             print('    begin', file=file)
             for net in writes:
                 t = (varname(net.args[2]), net.op_param[0],
@@ -892,7 +892,7 @@ def _to_verilog_footer(file):
     print('endmodule\n', file=file)
 
 
-def output_verilog_testbench(dest_file, simulation_trace=None, toplevel_include=None,
+def output_verilog_testbench(dest_file, clock_name="clock", simulation_trace=None, toplevel_include=None,
                              vcd="waveform.vcd", cmd=None, add_reset=True, block=None):
     """ Output a Verilog testbench for the block/inputs used in the simulation trace.
 
@@ -1000,7 +1000,7 @@ def output_verilog_testbench(dest_file, simulation_trace=None, toplevel_include=
     print('module tb();', file=dest_file)
 
     # Declare all block inputs as reg
-    print('    reg clk;', file=dest_file)
+    print('    reg {};'.format(clock_name), file=dest_file)
     if add_reset:
         print('    reg rst;', file=dest_file)
     for w in name_sorted(inputs):
@@ -1017,7 +1017,7 @@ def output_verilog_testbench(dest_file, simulation_trace=None, toplevel_include=
     print('    integer tb_iter;', file=dest_file)
 
     # Instantiate logic block
-    io_list = ['clk'] + name_list(name_sorted(inputs)) + name_list(name_sorted(outputs))
+    io_list = [clock_name] + name_list(name_sorted(inputs)) + name_list(name_sorted(outputs))
     if add_reset:
         io_list.insert(1, 'rst')
     io_list_str = ['.{0:s}({0:s})'.format(w) for w in io_list]
@@ -1025,7 +1025,7 @@ def output_verilog_testbench(dest_file, simulation_trace=None, toplevel_include=
 
     # Generate clock signal
     print('    always', file=dest_file)
-    print('        #5 clk = ~clk;\n', file=dest_file)
+    print('        #5 {} = ~{};\n'.format(clock_name, clock_name), file=dest_file)
 
     # Move through all steps of trace, writing out input assignments per cycle
     print('    initial begin', file=dest_file)
@@ -1036,7 +1036,7 @@ def output_verilog_testbench(dest_file, simulation_trace=None, toplevel_include=
         print('        $dumpvars;\n', file=dest_file)
 
     # Initialize clk, and all the registers and memories
-    print('        clk = 0;', file=dest_file)
+    print('        {} = 0;'.format(clock_name), file=dest_file)
     if add_reset:
         print('        rst = 0;', file=dest_file)
     for r in name_sorted(registers):
