@@ -48,9 +48,11 @@ from pyrtl.rtllib import libutils
 
 
 class AES(object):
-    def __init__(self):
+    def __init__(self, use_rom_fix=False, distributed=False):
         self.memories_built = False
         self._key_len = 128
+        self.use_rom_fix = use_rom_fix
+        self.distributed = distributed
 
     def encryption(self, plaintext, key):
         """
@@ -290,8 +292,12 @@ class AES(object):
 
     def _build_memories(self):
         def build_mem(data):
-            return pyrtl.RomBlock(bitwidth=8, addrwidth=8, romdata=data, build_new_roms=True,
-                                  asynchronous=True)
+            if self.use_rom_fix:
+                return pyrtl.RomFix(bitwidth=8, addrwidth=8, romdata=data, build_new_roms=True,
+                                  asynchronous=False, distributed=self.distributed, max_read_ports=1)
+            else:
+                return pyrtl.RomBlock(bitwidth=8, addrwidth=8, romdata=data, build_new_roms=True,
+                                    asynchronous=True, max_read_ports=1)
 
         self.sbox = build_mem(self._sbox_data)
         self.inv_sbox = build_mem(self._inv_sbox_data)

@@ -473,6 +473,6 @@ class RomFix(MemBlock):
     def _make_copy(self, block=None,):
         block = working_block(block)
         return RomFix(bitwidth=self.bitwidth, addrwidth=self.addrwidth,
-                        romdata=self.data, name=self.name, max_read_ports=self.max_read_ports,
+                        romdata=self.data, distributed=self.distributed, name=self.name, max_read_ports=self.max_read_ports,
                         asynchronous=self.asynchronous, pad_with_zeros=self.pad_with_zeros,
                         block=block)

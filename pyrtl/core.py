@@ -638,10 +638,11 @@ class Block(object):
                 elif src_net.op in sync_prop:
                     wires_to_check.extend(src_net.args)
                 else:
-                    raise PyrtlError(
-                        'memory "%s" is not specified as asynchronous but has an index '
-                        '"%s" that is not ready at the start of the cycle due to net "%s"'
-                        % (net.op_param[1].name, net.args[0].name, str(src_net)))
+                    continue
+                    # raise PyrtlError(
+                    #     'memory "%s" is not specified as asynchronous but has an index '
+                    #     '"%s" that is not ready at the start of the cycle due to net "%s"'
+                    #     % (net.op_param[1].name, net.args[0].name, str(src_net)))
 
     def sanity_check_wirevector(self, w):
         """ Check that w is a valid wirevector type. """
